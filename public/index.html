@@ -3,48 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Courses Guide - By Rajat Goyal</title>
+    <title>Course Guide Bot</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lexend:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Custom Stylesheet -->
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-gray-50 text-gray-800">
+<body>
 
-    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
-        <header class="text-center mb-8">
-            <img src="http://googleusercontent.com/file_content/3" alt="Rajat Goyal's avatar" class="avatar">
-            <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mt-4">📚 Courses Guide</h1>
-            <p class="mt-1 text-md text-gray-500">By Rajat Goyal</p>
+    <div class="main-container">
+        <header class="app-header">
+            <!-- The image source is now linked to your Google Drive picture -->
+            <img src="https://drive.google.com/uc?export=view&id=1bKk1dvLKLmOBTfCw6sM4XqQ-JNgf-6uO" alt="Rajat Goyal's avatar" class="avatar">
+            <h1 class="app-title">Course Guide Bot</h1>
+            <p class="app-subtitle">By Rajat Goyal <span class="font-normal text-gray-500">(Assistant Professor, UPES / PhD IIT Delhi)</span></p>
         </header>
 
-        <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
+        <div class="chat-card">
             
             <div class="mb-6">
-                <label for="user-question" class="block text-lg font-semibold mb-2 text-gray-700">Ask a Question</label>
-                <p class="text-sm text-gray-500 mb-3">Ask anything about the course materials. The answer will be based on the latest documents provided by your instructor.</p>
-                <div class="flex flex-col sm:flex-row gap-2">
-                    <input type="text" id="user-question" class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="e.g., What is the policy on late submissions?">
-                    <button id="ask-button" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors duration-300 flex items-center justify-center shadow-md">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="m22 2-7 20-4-9-9-4Z"/><path d="m22 2-11 11"/></svg>
-                        Ask
+                <label for="user-question" class="input-label">Ask a Question</label>
+                <p class="input-sublabel">Ask anything about the course materials. The answer will be based on the latest documents provided by your instructor.</p>
+                <div class="input-wrapper">
+                    <input type="text" id="user-question" class="question-input" placeholder="e.g., What is the policy on late submissions?">
+                    <button id="ask-button" class="ask-button">
+                        <svg class="ask-button-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="m22 2-11 11"/></svg>
+                        <span>Ask</span>
                     </button>
                 </div>
             </div>
 
             <div>
-                <h2 class="text-lg font-semibold mb-2 text-gray-700">Answer</h2>
-                <div id="answer-container" class="w-full p-4 min-h-[100px] bg-gray-100 border border-gray-200 rounded-lg relative">
-                    <div id="loader" class="absolute inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center hidden">
-                        <div class="loader"></div>
+                <h2 class="input-label">Answer</h2>
+                <div id="answer-container" class="answer-box">
+                    <div id="loader" class="loader-wrapper hidden">
+                        <div class="loader">
+                            <div class="bar1"></div><div class="bar2"></div><div class="bar3"></div><div class="bar4"></div><div class="bar5"></div><div class="bar6"></div><div class="bar7"></div><div class="bar8"></div><div class="bar9"></div><div class="bar10"></div><div class="bar11"></div><div class="bar12"></div>
+                        </div>
                     </div>
-                    <p id="answer-placeholder" class="text-gray-500">The AI-generated answer will appear here...</p>
-                    <p id="answer-text" class="text-gray-800 whitespace-pre-wrap"></p>
-                    <div id="error-message" class="text-red-600 hidden"></div>
+                    <p id="answer-placeholder" class="answer-placeholder">The AI-generated answer will appear here...</p>
+                    <p id="answer-text" class="answer-text"></p>
+                    <div id="error-message" class="error-box hidden"></div>
                 </div>
             </div>
         </div>
         
-        <footer class="text-center mt-8 text-sm text-gray-500">
+        <footer class="app-footer">
             <p>This guide is automatically updated from the latest course documents.</p>
         </footer>
     </div>

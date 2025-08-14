@@ -2,13 +2,5 @@
   functions = "netlify/functions"
   publish = "public"
 
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-
-# Increase the timeout for the ask-gemini function to 26 seconds
-# This helps prevent crashes when reading multiple files from Google Drive
 [functions."ask-gemini"]
-  timeout = 45
-
+  timeout = 26

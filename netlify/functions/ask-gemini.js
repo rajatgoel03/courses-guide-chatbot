@@ -16,12 +16,18 @@ exports.handler = async function(event) {
     try {
         // --- Retrieve and Validate Environment Variables ---
         const { GEMINI_API_KEY, DRIVE_API_CREDENTIALS, DRIVE_FOLDER_ID } = process.env;
-        if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not set on the server.");
-        if (!DRIVE_API_CREDENTIALS) throw new Error("DRIVE_API_CREDENTIALS is not set on the server.");
-        if (!DRIVE_FOLDER_ID) throw new Error("DRIVE_FOLDER_ID is not set on the server.");
+        if (!GEMINI_API_KEY) throw new Error("Server configuration error: GEMINI_API_KEY is missing.");
+        if (!DRIVE_API_CREDENTIALS) throw new Error("Server configuration error: DRIVE_API_CREDENTIALS is missing.");
+        if (!DRIVE_FOLDER_ID) throw new Error("Server configuration error: DRIVE_FOLDER_ID is missing.");
 
+        let credentials;
+        try {
+            credentials = JSON.parse(DRIVE_API_CREDENTIALS);
+        } catch (e) {
+            throw new Error("Server configuration error: DRIVE_API_CREDENTIALS is not valid JSON. Please re-copy the entire .json key file.");
+        }
+        
         // --- Authenticate and Connect to Google Drive ---
-        const credentials = JSON.parse(DRIVE_API_CREDENTIALS);
         const auth = new google.auth.GoogleAuth({
             credentials,
             scopes: ['https://www.googleapis.com/auth/drive.readonly'],
@@ -31,7 +37,7 @@ exports.handler = async function(event) {
         // --- Fetch and Parse Files from Drive ---
         const knowledgeBase = await getKnowledgeFromDrive(drive, DRIVE_FOLDER_ID);
         if (!knowledgeBase) {
-            throw new Error('Could not retrieve any content from the Google Drive folder. Ensure files are present and the folder is shared correctly with the service account.');
+            throw new Error('Could not retrieve any content from the Google Drive folder. Ensure files are present and the folder is shared correctly with the service account email.');
         }
 
         // --- Prepare and Call Gemini API ---

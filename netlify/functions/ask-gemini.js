@@ -9,16 +9,20 @@ const JSZip = require('jszip');
 
 // Main handler for the Netlify serverless function
 exports.handler = async function(event) {
+    console.log("ask-gemini function invoked.");
+
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
     }
 
     try {
         // --- Retrieve and Validate Environment Variables ---
+        console.log("Step 1: Validating environment variables...");
         const { GEMINI_API_KEY, DRIVE_API_CREDENTIALS, DRIVE_FOLDER_ID } = process.env;
         if (!GEMINI_API_KEY) throw new Error("Server configuration error: GEMINI_API_KEY is missing.");
         if (!DRIVE_API_CREDENTIALS) throw new Error("Server configuration error: DRIVE_API_CREDENTIALS is missing.");
         if (!DRIVE_FOLDER_ID) throw new Error("Server configuration error: DRIVE_FOLDER_ID is missing.");
+        console.log("Environment variables are present.");
 
         let credentials;
         try {
@@ -28,19 +32,24 @@ exports.handler = async function(event) {
         }
         
         // --- Authenticate and Connect to Google Drive ---
+        console.log("Step 2: Authenticating with Google Drive...");
         const auth = new google.auth.GoogleAuth({
             credentials,
             scopes: ['https://www.googleapis.com/auth/drive.readonly'],
         });
         const drive = google.drive({ version: 'v3', auth });
+        console.log("Authentication successful.");
 
         // --- Fetch and Parse Files from Drive ---
+        console.log("Step 3: Fetching and parsing files from Drive...");
         const knowledgeBase = await getKnowledgeFromDrive(drive, DRIVE_FOLDER_ID);
         if (!knowledgeBase) {
             throw new Error('Could not retrieve any content from the Google Drive folder. Ensure files are present and the folder is shared correctly with the service account email.');
         }
+        console.log(`File parsing complete. Knowledge base length: ${knowledgeBase.length}`);
 
         // --- Prepare and Call Gemini API ---
+        console.log("Step 4: Preparing to call Gemini API...");
         const { userQuestion } = JSON.parse(event.body);
         if (!userQuestion) throw new Error('No user question was provided.');
 
@@ -48,11 +57,13 @@ exports.handler = async function(event) {
         const payload = { contents: [{ parts: [{ text: prompt }] }] };
         const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GEMINI_API_KEY}`;
         
+        console.log("Sending request to Gemini...");
         const geminiResponse = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
+        console.log(`Received response from Gemini. Status: ${geminiResponse.status}`);
 
         if (!geminiResponse.ok) {
             const errorData = await geminiResponse.json();
@@ -62,6 +73,7 @@ exports.handler = async function(event) {
         const result = await geminiResponse.json();
 
         // --- Return Successful Response to Frontend ---
+        console.log("Step 5: Sending successful response to frontend.");
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
@@ -70,34 +82,42 @@ exports.handler = async function(event) {
 
     } catch (error) {
         // --- This block catches ALL errors and sends a proper JSON response ---
-        console.error('Server-side error:', error);
+        console.error('SERVER-SIDE CRASH:', error);
         return {
             statusCode: 500,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ error: error.message || 'An internal server error occurred.' }),
+            body: JSON.stringify({ error: `Function Error: ${error.message}` || 'An internal server error occurred.' }),
         };
     }
 };
 
 // --- Helper function to get all file content from a Drive folder ---
 async function getKnowledgeFromDrive(drive, folderId) {
+    console.log(`Listing files in folder: ${folderId}`);
     const res = await drive.files.list({
         q: `'${folderId}' in parents and trashed = false`,
         fields: 'files(id, name, mimeType)',
     });
     const files = res.data.files;
-    if (!files || files.length === 0) return '';
+    if (!files || files.length === 0) {
+        console.log("No files found in the Drive folder.");
+        return '';
+    }
+    console.log(`Found ${files.length} files. Starting to parse...`);
     
     const filePromises = files.map(async (file) => {
         try {
+            console.log(`- Parsing file: ${file.name}`);
             const fileStream = await drive.files.get({ fileId: file.id, alt: 'media' }, { responseType: 'stream' });
             const buffer = await streamToBuffer(fileStream.data);
+            let textContent = `[Content from file: ${file.name}]\n`;
+
             if (file.mimeType === 'application/pdf') {
                 const data = await pdf(buffer);
-                return data.text;
+                textContent += data.text;
             } else if (file.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
                 const { value } = await mammoth.extractRawText({ buffer });
-                return value;
+                textContent += value;
             } else if (file.mimeType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
                 const zip = await JSZip.loadAsync(buffer);
                 const slidePromises = [];
@@ -105,11 +125,14 @@ async function getKnowledgeFromDrive(drive, folderId) {
                     if (relativePath.endsWith('.xml')) slidePromises.push(file.async("string"));
                 });
                 const slideXmls = await Promise.all(slidePromises);
-                return slideXmls.map(xml => (xml.match(/<a:t>.*?<\/a:t>/g) || []).map(tag => tag.replace(/<.*?>/g, "")).join(' ')).join('\n');
+                textContent += slideXmls.map(xml => (xml.match(/<a:t>.*?<\/a:t>/g) || []).map(tag => tag.replace(/<.*?>/g, "")).join(' ')).join('\n');
+            } else {
+                textContent += `[Unsupported file type: ${file.name}]`;
             }
-            return `[Unsupported file type: ${file.name}]`;
+            console.log(`- Finished parsing: ${file.name}`);
+            return textContent;
         } catch (err) {
-            console.error(`Failed to parse file ${file.name}:`, err);
+            console.error(`- FAILED to parse file ${file.name}:`, err);
             return `[Error reading file: ${file.name}]`;
         }
     });

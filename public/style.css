@@ -22,8 +22,8 @@ body {
 }
 
 .avatar {
-    width: 100px;
-    height: 100px;
+    width: 80px; /* Reduced from 100px */
+    height: 80px; /* Reduced from 100px */
     border-radius: 50%;
     object-fit: cover;
     margin: 0 auto;

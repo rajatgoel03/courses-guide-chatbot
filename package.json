@@ -1,0 +1,11 @@
+{
+  "name": "courses-guide-drive-chatbot",
+  "version": "1.0.0",
+  "description": "A secure chatbot that reads from a Google Drive folder.",
+  "dependencies": {
+    "googleapis": "^126.0.1",
+    "pdf-parse": "^1.1.1",
+    "mammoth": "^1.6.0",
+    "jszip": "^3.10.1"
+  }
+}

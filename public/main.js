@@ -42,6 +42,7 @@ async function handleAsk() {
 
         const result = await response.json();
 
+        // Check for errors sent from our backend function
         if (!response.ok) {
             throw new Error(result.error || `Request failed with status ${response.status}`);
         }
@@ -61,6 +62,7 @@ async function handleAsk() {
         }
     } catch (error) {
         console.error("API call failed:", error);
+        // Display the specific error message
         displayError(error.message || "An unknown error occurred.");
     }
 }

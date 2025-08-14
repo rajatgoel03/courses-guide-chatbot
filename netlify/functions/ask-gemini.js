@@ -8,6 +8,7 @@ const mammoth = require('mammoth');
 const JSZip = require('jszip');
 
 // Main handler for the Netlify serverless function
+// NOTE: The filename is 'ask-gemini.js' but the code now calls the OpenAI API.
 exports.handler = async function(event) {
     console.log("ask-openai function invoked.");
 
@@ -28,7 +29,8 @@ exports.handler = async function(event) {
         try {
             credentials = JSON.parse(DRIVE_API_CREDENTIALS);
         } catch (e) {
-            throw new Error("Server configuration error: DRIVE_API_CREDENTIALS is not valid JSON.");
+            // This is a critical error check. It will fail if the credentials JSON is invalid.
+            throw new Error("Server configuration error: DRIVE_API_CREDENTIALS is not valid JSON. Please re-copy the entire .json key file from Google Cloud.");
         }
         
         // --- Authenticate and Connect to Google Drive ---
@@ -44,7 +46,7 @@ exports.handler = async function(event) {
         console.log("Step 3: Fetching and parsing files from Drive...");
         const knowledgeBase = await getKnowledgeFromDrive(drive, DRIVE_FOLDER_ID);
         if (!knowledgeBase) {
-            throw new Error('Could not retrieve any content from the Google Drive folder.');
+            throw new Error('Could not retrieve any content from the Google Drive folder. Check that files exist and the folder is shared with the service account email.');
         }
         console.log(`File parsing complete. Knowledge base length: ${knowledgeBase.length}`);
 

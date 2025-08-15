@@ -7,49 +7,59 @@ const pdf = require('pdf-parse');
 const mammoth = require('mammoth');
 const JSZip = require('jszip');
 
+// --- Caching Mechanism ---
+// We store the processed text in memory to speed up subsequent requests.
+let cachedKnowledgeBase = null;
+let cacheTimestamp = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // Cache for 5 minutes (in milliseconds)
+
 // Main handler for the Netlify serverless function
 exports.handler = async function(event) {
-    console.log("ask-gemini function invoked.");
-
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
     }
 
     try {
         // --- Retrieve and Validate Environment Variables ---
-        console.log("Step 1: Validating environment variables...");
         const { GEMINI_API_KEY, DRIVE_API_CREDENTIALS, DRIVE_FOLDER_ID } = process.env;
         if (!GEMINI_API_KEY) throw new Error("Server configuration error: GEMINI_API_KEY is missing.");
         if (!DRIVE_API_CREDENTIALS) throw new Error("Server configuration error: DRIVE_API_CREDENTIALS is missing.");
         if (!DRIVE_FOLDER_ID) throw new Error("Server configuration error: DRIVE_FOLDER_ID is missing.");
-        console.log("Environment variables are present.");
 
-        let credentials;
-        try {
-            credentials = JSON.parse(DRIVE_API_CREDENTIALS);
-        } catch (e) {
-            throw new Error("Server configuration error: DRIVE_API_CREDENTIALS is not valid JSON. Please re-copy the entire .json key file.");
-        }
-        
-        // --- Authenticate and Connect to Google Drive ---
-        console.log("Step 2: Authenticating with Google Drive...");
-        const auth = new google.auth.GoogleAuth({
-            credentials,
-            scopes: ['https://www.googleapis.com/auth/drive.readonly'],
-        });
-        const drive = google.drive({ version: 'v3', auth });
-        console.log("Authentication successful.");
+        let knowledgeBase;
+        const now = Date.now();
 
-        // --- Fetch and Parse Files from Drive ---
-        console.log("Step 3: Fetching and parsing files from Drive...");
-        const knowledgeBase = await getKnowledgeFromDrive(drive, DRIVE_FOLDER_ID);
-        if (!knowledgeBase) {
-            throw new Error('Could not retrieve any content from the Google Drive folder. Ensure files are present and the folder is shared correctly with the service account email.');
+        // Check if we have a valid cache
+        if (cachedKnowledgeBase && (now - cacheTimestamp < CACHE_DURATION)) {
+            console.log("Using cached knowledge base.");
+            knowledgeBase = cachedKnowledgeBase;
+        } else {
+            console.log("Cache is invalid or expired. Fetching from Google Drive...");
+            let credentials;
+            try {
+                credentials = JSON.parse(DRIVE_API_CREDENTIALS);
+            } catch (e) {
+                throw new Error("Server configuration error: DRIVE_API_CREDENTIALS is not valid JSON.");
+            }
+            
+            const auth = new google.auth.GoogleAuth({
+                credentials,
+                scopes: ['https://www.googleapis.com/auth/drive.readonly'],
+            });
+            const drive = google.drive({ version: 'v3', auth });
+
+            knowledgeBase = await getKnowledgeFromDrive(drive, DRIVE_FOLDER_ID);
+            if (!knowledgeBase) {
+                throw new Error('Could not retrieve any content from the Google Drive folder.');
+            }
+            
+            // Update the cache
+            cachedKnowledgeBase = knowledgeBase;
+            cacheTimestamp = now;
+            console.log("Knowledge base cached successfully.");
         }
-        console.log(`File parsing complete. Knowledge base length: ${knowledgeBase.length}`);
 
         // --- Prepare and Call Gemini API ---
-        console.log("Step 4: Preparing to call Gemini API...");
         const { userQuestion } = JSON.parse(event.body);
         if (!userQuestion) throw new Error('No user question was provided.');
 
@@ -57,13 +67,11 @@ exports.handler = async function(event) {
         const payload = { contents: [{ parts: [{ text: prompt }] }] };
         const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GEMINI_API_KEY}`;
         
-        console.log("Sending request to Gemini...");
         const geminiResponse = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        console.log(`Received response from Gemini. Status: ${geminiResponse.status}`);
 
         if (!geminiResponse.ok) {
             const errorData = await geminiResponse.json();
@@ -73,7 +81,6 @@ exports.handler = async function(event) {
         const result = await geminiResponse.json();
 
         // --- Return Successful Response to Frontend ---
-        console.log("Step 5: Sending successful response to frontend.");
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
@@ -81,7 +88,6 @@ exports.handler = async function(event) {
         };
 
     } catch (error) {
-        // --- This block catches ALL errors and sends a proper JSON response ---
         console.error('SERVER-SIDE CRASH:', error);
         return {
             statusCode: 500,

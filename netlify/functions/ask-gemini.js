@@ -11,7 +11,8 @@ const JSZip = require('jszip');
 // We store the processed text in memory to speed up subsequent requests.
 let cachedKnowledgeBase = null;
 let cacheTimestamp = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // Cache for 5 minutes (in milliseconds)
+// Increased cache duration to 15 minutes to improve performance during a single session
+const CACHE_DURATION = 15 * 60 * 1000; // Cache for 15 minutes (in milliseconds)
 
 // Main handler for the Netlify serverless function
 exports.handler = async function(event) {
@@ -31,7 +32,8 @@ exports.handler = async function(event) {
 
         // Check if we have a valid cache
         if (cachedKnowledgeBase && (now - cacheTimestamp < CACHE_DURATION)) {
-            console.log("Using cached knowledge base.");
+            const timeRemaining = (CACHE_DURATION - (now - cacheTimestamp)) / 1000;
+            console.log(`Using cached knowledge base. Cache valid for ${Math.round(timeRemaining)} more seconds.`);
             knowledgeBase = cachedKnowledgeBase;
         } else {
             console.log("Cache is invalid or expired. Fetching from Google Drive...");

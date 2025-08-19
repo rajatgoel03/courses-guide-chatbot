@@ -5,9 +5,9 @@ body {
     color: #334155; /* slate-700 */
     display: flex;
     justify-content: center;
-    align-items: flex-start;
+    align-items: center; /* Centered vertically */
     min-height: 100vh;
-    padding: 2rem;
+    padding: 1rem;
 }
 
 /* --- Main Layout & Header --- */
@@ -18,7 +18,7 @@ body {
 
 .app-header {
     text-align: center;
-    margin-bottom: 2.5rem;
+    margin-bottom: 2rem; /* Reduced space */
 }
 
 .avatar {
@@ -58,8 +58,8 @@ body {
 
 /* --- Chat Window & Messages --- */
 .chat-window {
-    height: 60vh;
-    max-height: 500px;
+    height: 45vh; /* Reduced height */
+    max-height: 400px; /* Reduced max-height */
     overflow-y: auto;
     display: flex;
     flex-direction: column;

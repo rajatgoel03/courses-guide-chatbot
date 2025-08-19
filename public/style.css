@@ -2,17 +2,25 @@
 body {
     font-family: 'Inter', sans-serif;
     background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    color: #334155;
+    color: #334155; /* slate-700 */
     display: flex;
     justify-content: center;
     align-items: flex-start;
     min-height: 100vh;
-    padding: 1rem;
+    padding: 2rem;
 }
 
 /* --- Main Layout & Header --- */
-.main-container { width: 100%; max-width: 48rem; }
-.app-header { text-align: center; margin-bottom: 2rem; }
+.main-container {
+    width: 100%;
+    max-width: 56rem; /* UPDATED: Increased from 48rem for a wider layout on desktops */
+}
+
+.app-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+
 .avatar {
     width: 80px;
     height: 80px;
@@ -22,14 +30,20 @@ body {
     border: 4px solid #fff;
     box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
 }
+
 .app-title {
     font-family: 'Lexend', sans-serif;
-    font-size: 2rem;
+    font-size: 2.25rem; /* text-4xl */
     font-weight: 700;
-    color: #1e293b;
+    color: #1e293b; /* slate-800 */
     margin-top: 1rem;
 }
-.app-subtitle { font-size: 1.125rem; color: #475569; margin-top: 0.25rem; }
+
+.app-subtitle {
+    font-size: 1.125rem; /* text-lg */
+    color: #475569; /* slate-600 */
+    margin-top: 0.25rem;
+}
 
 /* --- Main Chat Card --- */
 .chat-card {
@@ -56,7 +70,7 @@ body {
 .user-message, .bot-message {
     padding: 0.75rem 1.25rem;
     border-radius: 1.25rem;
-    max-width: 80%;
+    max-width: 85%; /* UPDATED: Increased from 80% to allow wider chat bubbles */
     line-height: 1.6;
 }
 .user-message {

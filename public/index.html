@@ -20,39 +20,32 @@
 
     <div class="main-container">
         <header class="app-header">
-            <!-- This link now points directly to your image file on GitHub -->
             <img src="https://raw.githubusercontent.com/rajatgoel03/courses-guide-chatbot/main/Avatar.png" alt="Rajat Goyal's avatar" class="avatar">
             <h1 class="app-title">Course Guide Bot</h1>
-            <p class="app-subtitle">By Rajat Goyal <span class="font-normal text-gray-500">(Assistant Professor, UPES / Ph.D IIT Delhi)</span></p>
+            <p class="app-subtitle">By Rajat Goyal <span class="font-normal text-gray-500">(Assistant Professor, UPES / PhD IIT Delhi)</span></p>
         </header>
 
         <div class="chat-card">
-            
-            <div class="mb-6">
-                <label for="user-question" class="input-label">Ask a Question</label>
-                <p class="input-sublabel">Ask anything about the course materials. The answer will be based on the latest documents provided by your instructor.</p>
-                <div class="input-wrapper">
-                    <input type="text" id="user-question" class="question-input" placeholder="e.g., What is the policy on late submissions?">
-                    <button id="ask-button" class="ask-button">
-                        <svg class="ask-button-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="m22 2-11 11"/></svg>
-                        <span>Ask</span>
-                    </button>
+            <!-- Chat messages will be displayed here -->
+            <div id="chat-window" class="chat-window">
+                <div class="bot-message">
+                    <p>Hello! I'm the Course Guide Bot. Ask me anything about the course materials.</p>
                 </div>
             </div>
 
-            <div>
-                <h2 class="input-label">Answer</h2>
-                <div id="answer-container" class="answer-box">
-                    <div id="loader" class="loader-wrapper hidden">
-                        <div class="loader">
-                            <div class="bar1"></div><div class="bar2"></div><div class="bar3"></div><div class="bar4"></div><div class="bar5"></div><div class="bar6"></div><div class="bar7"></div><div class="bar8"></div><div class="bar9"></div><div class="bar10"></div><div class="bar11"></div><div class="bar12"></div>
-                        </div>
-                    </div>
-                    <p id="answer-placeholder" class="answer-placeholder">The AI-generated answer will appear here...</p>
-                    <p id="answer-text" class="answer-text"></p>
-                    <div id="error-message" class="error-box hidden"></div>
-                </div>
+            <!-- Typing indicator -->
+            <div id="typing-indicator" class="typing-indicator hidden">
+                <span></span><span></span><span></span>
             </div>
+
+            <!-- Input form -->
+            <form id="chat-form" class="chat-form">
+                <input type="text" id="user-input" class="question-input" placeholder="Type your message..." autocomplete="off">
+                <button type="submit" id="send-button" class="send-button">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+            </form>
+            <div id="error-message" class="error-box hidden"></div>
         </div>
         
         <footer class="app-footer">

@@ -1,75 +1,87 @@
-const askButton = document.getElementById('ask-button');
-const userQuestionInput = document.getElementById('user-question');
-const answerText = document.getElementById('answer-text');
-const answerPlaceholder = document.getElementById('answer-placeholder');
-const loader = document.getElementById('loader');
+const chatWindow = document.getElementById('chat-window');
+const chatForm = document.getElementById('chat-form');
+const userInput = document.getElementById('user-input');
+const sendButton = document.getElementById('send-button');
+const typingIndicator = document.getElementById('typing-indicator');
 const errorMessage = document.getElementById('error-message');
 const API_ENDPOINT = '/api/ask-gemini';
 
-function showLoading() {
-    loader.classList.remove('hidden');
-    answerText.textContent = '';
-    answerPlaceholder.classList.add('hidden');
-    errorMessage.classList.add('hidden');
+// --- State Management ---
+let chatHistory = []; // Stores the conversation { role: 'user'/'model', parts: [{ text: '...' }] }
+
+// --- Event Listeners ---
+chatForm.addEventListener('submit', handleSendMessage);
+
+// --- Functions ---
+function handleSendMessage(e) {
+    e.preventDefault();
+    const message = userInput.value.trim();
+    if (!message) return;
+
+    // Add user message to history and UI
+    chatHistory.push({ role: 'user', parts: [{ text: message }] });
+    appendMessage(message, 'user');
+
+    userInput.value = '';
+    userInput.focus();
+
+    // Get bot response
+    fetchBotResponse();
 }
 
-function hideLoading() {
-    loader.classList.add('hidden');
+function appendMessage(text, type) {
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add(type === 'user' ? 'user-message' : 'bot-message');
+    
+    const p = document.createElement('p');
+    p.textContent = text;
+    messageDiv.appendChild(p);
+    
+    chatWindow.appendChild(messageDiv);
+    chatWindow.scrollTop = chatWindow.scrollHeight; // Auto-scroll to bottom
+}
+
+function showTypingIndicator(show) {
+    typingIndicator.classList.toggle('hidden', !show);
+    if (show) chatWindow.scrollTop = chatWindow.scrollHeight;
 }
 
 function displayError(message) {
-    hideLoading();
     errorMessage.textContent = `Error: ${message}`;
     errorMessage.classList.remove('hidden');
-    answerPlaceholder.classList.remove('hidden');
 }
 
-async function handleAsk() {
-    const userQuestion = userQuestionInput.value.trim();
-    if (!userQuestion) {
-        displayError("Please ask a question.");
-        return;
-    }
-
-    showLoading();
+async function fetchBotResponse() {
+    showTypingIndicator(true);
+    errorMessage.classList.add('hidden');
 
     try {
         const response = await fetch(API_ENDPOINT, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userQuestion })
+            body: JSON.stringify({ chatHistory }) // Send the entire history
         });
 
-        const result = await response.json();
-
-        // Check for errors sent from our backend function
         if (!response.ok) {
+            const result = await response.json();
             throw new Error(result.error || `Request failed with status ${response.status}`);
         }
 
-        const generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+        const result = await response.json();
+        const botMessage = result.candidates?.[0]?.content?.parts?.[0]?.text;
 
-        if (generatedText) {
-            hideLoading();
-            answerText.textContent = generatedText;
+        if (botMessage) {
+            // Add bot response to history and UI
+            chatHistory.push({ role: 'model', parts: [{ text: botMessage }] });
+            appendMessage(botMessage, 'bot');
         } else {
-            const finishReason = result.candidates?.[0]?.finishReason;
-            if (finishReason === 'SAFETY') {
-                 displayError("The response was blocked due to safety settings. Try rephrasing your question.");
-            } else {
-                 displayError("Could not get a valid answer from the AI. The response was empty.");
-            }
+            throw new Error("Received an empty response from the bot.");
         }
+
     } catch (error) {
         console.error("API call failed:", error);
-        // Display the specific error message
         displayError(error.message || "An unknown error occurred.");
+    } finally {
+        showTypingIndicator(false);
     }
 }
-
-askButton.addEventListener('click', handleAsk);
-userQuestionInput.addEventListener('keyup', (event) => {
-    if (event.key === 'Enter') {
-        handleAsk();
-    }
-});

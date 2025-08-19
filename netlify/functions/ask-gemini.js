@@ -1,72 +1,56 @@
 const { google } = require('googleapis');
 const stream = require('stream');
 const util = require('util');
-
-// Libraries for parsing file content
 const pdf = require('pdf-parse');
 const mammoth = require('mammoth');
 const JSZip = require('jszip');
 
 // --- Caching Mechanism ---
-// We store the processed text in memory to speed up subsequent requests.
 let cachedKnowledgeBase = null;
 let cacheTimestamp = 0;
-// Increased cache duration to 15 minutes to improve performance during a single session
-const CACHE_DURATION = 15 * 60 * 1000; // Cache for 15 minutes (in milliseconds)
+const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
 
-// Main handler for the Netlify serverless function
 exports.handler = async function(event) {
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
     }
 
     try {
-        // --- Retrieve and Validate Environment Variables ---
         const { GEMINI_API_KEY, DRIVE_API_CREDENTIALS, DRIVE_FOLDER_ID } = process.env;
-        if (!GEMINI_API_KEY) throw new Error("Server configuration error: GEMINI_API_KEY is missing.");
-        if (!DRIVE_API_CREDENTIALS) throw new Error("Server configuration error: DRIVE_API_CREDENTIALS is missing.");
-        if (!DRIVE_FOLDER_ID) throw new Error("Server configuration error: DRIVE_FOLDER_ID is missing.");
+        if (!GEMINI_API_KEY || !DRIVE_API_CREDENTIALS || !DRIVE_FOLDER_ID) {
+            throw new Error("Server configuration error: Missing environment variables.");
+        }
 
         let knowledgeBase;
         const now = Date.now();
 
-        // Check if we have a valid cache
         if (cachedKnowledgeBase && (now - cacheTimestamp < CACHE_DURATION)) {
-            const timeRemaining = (CACHE_DURATION - (now - cacheTimestamp)) / 1000;
-            console.log(`Using cached knowledge base. Cache valid for ${Math.round(timeRemaining)} more seconds.`);
             knowledgeBase = cachedKnowledgeBase;
         } else {
-            console.log("Cache is invalid or expired. Fetching from Google Drive...");
-            let credentials;
-            try {
-                credentials = JSON.parse(DRIVE_API_CREDENTIALS);
-            } catch (e) {
-                throw new Error("Server configuration error: DRIVE_API_CREDENTIALS is not valid JSON.");
-            }
-            
-            const auth = new google.auth.GoogleAuth({
-                credentials,
-                scopes: ['https://www.googleapis.com/auth/drive.readonly'],
-            });
+            let credentials = JSON.parse(DRIVE_API_CREDENTIALS);
+            const auth = new google.auth.GoogleAuth({ credentials, scopes: ['https://www.googleapis.com/auth/drive.readonly'] });
             const drive = google.drive({ version: 'v3', auth });
-
             knowledgeBase = await getKnowledgeFromDrive(drive, DRIVE_FOLDER_ID);
-            if (!knowledgeBase) {
-                throw new Error('Could not retrieve any content from the Google Drive folder.');
-            }
-            
-            // Update the cache
+            if (!knowledgeBase) throw new Error('Could not retrieve content from Google Drive.');
             cachedKnowledgeBase = knowledgeBase;
             cacheTimestamp = now;
-            console.log("Knowledge base cached successfully.");
         }
 
-        // --- Prepare and Call Gemini API ---
-        const { userQuestion } = JSON.parse(event.body);
-        if (!userQuestion) throw new Error('No user question was provided.');
+        const { chatHistory } = JSON.parse(event.body);
+        if (!chatHistory || !Array.isArray(chatHistory)) {
+            throw new Error("Invalid chat history provided.");
+        }
 
-        const prompt = `You are a helpful university course assistant named 'Courses Guide'. Your job is to answer student questions based ONLY on the provided course information from the documents. If the answer is not found, you must say "I'm sorry, I don't have information on that." Do not make up answers.\n\nHere is the course information:\n---\n${knowledgeBase}\n---\n\nNow, please answer the following question: "${userQuestion}"`;
-        const payload = { contents: [{ parts: [{ text: prompt }] }] };
+        // --- Construct the conversational payload for Gemini API ---
+        const systemInstruction = {
+            role: 'user',
+            parts: [{ text: `You are a helpful university course assistant named 'Courses Guide'. Your job is to answer student questions based ONLY on the provided course information. If the answer is not found, you must say "I'm sorry, I don't have information on that." Do not make up answers. Here is the course information:\n\n---\n${knowledgeBase}\n---` }]
+        };
+
+        const payload = {
+            contents: [systemInstruction, ...chatHistory]
+        };
+
         const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GEMINI_API_KEY}`;
         
         const geminiResponse = await fetch(API_URL, {
@@ -81,12 +65,16 @@ exports.handler = async function(event) {
         }
 
         const result = await geminiResponse.json();
+        const botResponse = result.candidates?.[0]?.content;
+        
+        if (!botResponse) {
+             throw new Error("Received an empty or invalid response from the Gemini API.");
+        }
 
-        // --- Return Successful Response to Frontend ---
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(result),
+            body: JSON.stringify({ candidates: [{ content: botResponse }] }),
         };
 
     } catch (error) {
@@ -99,21 +87,16 @@ exports.handler = async function(event) {
     }
 };
 
-// --- Helper function to get all file content from a Drive folder ---
+// --- Helper functions (getKnowledgeFromDrive, streamToBuffer) remain the same ---
 async function getKnowledgeFromDrive(drive, folderId) {
-    const res = await drive.files.list({
-        q: `'${folderId}' in parents and trashed = false`,
-        fields: 'files(id, name, mimeType)',
-    });
+    const res = await drive.files.list({ q: `'${folderId}' in parents and trashed = false`, fields: 'files(id, name, mimeType)' });
     const files = res.data.files;
     if (!files || files.length === 0) return '';
-    
     const filePromises = files.map(async (file) => {
         try {
             const fileStream = await drive.files.get({ fileId: file.id, alt: 'media' }, { responseType: 'stream' });
             const buffer = await streamToBuffer(fileStream.data);
             let textContent = `[Content from file: ${file.name}]\n`;
-
             if (file.mimeType === 'application/pdf') {
                 const data = await pdf(buffer);
                 textContent += data.text;
@@ -128,20 +111,13 @@ async function getKnowledgeFromDrive(drive, folderId) {
                 });
                 const slideXmls = await Promise.all(slidePromises);
                 textContent += slideXmls.map(xml => (xml.match(/<a:t>.*?<\/a:t>/g) || []).map(tag => tag.replace(/<.*?>/g, "")).join(' ')).join('\n');
-            } else {
-                textContent += `[Unsupported file type: ${file.name}]`;
-            }
+            } else { textContent += `[Unsupported file type: ${file.name}]`; }
             return textContent;
-        } catch (err) {
-            console.error(`- FAILED to parse file ${file.name}:`, err);
-            return `[Error reading file: ${file.name}]`;
-        }
+        } catch (err) { return `[Error reading file: ${file.name}]`; }
     });
-
     const allTexts = await Promise.all(filePromises);
     return allTexts.join('\n\n---\n\n');
 }
-
 function streamToBuffer(stream) {
     return new Promise((resolve, reject) => {
         const chunks = [];
